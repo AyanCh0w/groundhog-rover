@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <MPU6050_light.h>
 #include <math.h>
+#include <Servo.h>
 
 #define LED_PIN LED_BUILTIN  // Change to a specific pin if using an external LED
 
@@ -15,6 +16,9 @@ const char broker[] = "broker.hivemq.com";
 int        port     = 1883;
 const char topicCmd[] = "jumpstart/rover_command"; // subscribe here
 const char topicLocation[] = "jumpstart/rover_location";
+
+Servo servoA; // A0
+Servo servoB; // A1
 
 
 WiFiClient wifiClient;
@@ -164,9 +168,32 @@ void handleCommand(char* line) {
     int maxSec = (ntok>5) ? atoi(tokens[5]) : 6;
     turnDegrees(degRight, turnDuty, stopThr, hz, maxSec);
   }
+  else if (strcmp(tokens[0], "probe") == 0) {
+    probe(500);
+  }
   else if (strcmp(tokens[0], "stop") == 0) {
     driveStop();
   }
+}
+
+void stopServos() {
+  servoA.write(90); // stop
+  servoB.write(90);
+}
+
+void probe(int timeMs) {
+  // Down: A forward, B backward
+  servoA.write(120); // forward
+  servoB.write(60);  // reverse
+  delay(timeMs);
+
+  // Up: A backward, B forward
+  servoA.write(60);  // reverse
+  servoB.write(120); // forward
+  delay(timeMs);
+
+  // Stop
+  stopServos();
 }
 
 // ========================= Setup / Loop =========================
@@ -177,6 +204,11 @@ void setup() {
   analogWriteResolution(8);
   pinInitPWM(L_IN1); pinInitPWM(L_IN2);
   pinInitPWM(R_IN1); pinInitPWM(R_IN2);
+
+  servoA.attach(A0);
+  servoB.attach(A1);
+
+  stopServos();
 
   Wire.begin(); delay(100);
   if (mpu.begin() != 0) Serial.println("MPU6050 init failed!");
